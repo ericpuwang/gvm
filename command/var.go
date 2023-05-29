@@ -14,9 +14,6 @@ var (
 	gvmRootPath = path.Join(gvmBasePath, "goroots")
 	// 当前go版本目录的软连接
 	envGoROOT = path.Join(gvmBasePath, "go")
-)
-
-// 环境变量名称
-const (
-	gvmGoName = "GVM_GO_NAME"
+	// 当前Go版本
+	goVersionFilePath = path.Join(gvmBasePath, "goversion")
 )

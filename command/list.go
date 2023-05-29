@@ -2,14 +2,18 @@ package command
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing/transport/client"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/spf13/cobra"
 )
@@ -27,7 +31,7 @@ func List() *cobra.Command {
 			err := listPgks(opts.ListRemote)
 
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "\033[31m获取Golang版本列表失败. err: %v\033[0m", err)
+				fmt.Fprintf(os.Stderr, "\033[31m获取Golang版本列表失败.\033[0m err: %v\n", err)
 			}
 		},
 	}
@@ -53,22 +57,34 @@ func listLocalPkgs() error {
 		return err
 	}
 
-	currentGvmGoName := os.Getenv(gvmGoName)
+	body, _ := os.ReadFile(goVersionFilePath)
+	currentGoVersion := strings.TrimSpace(string(body))
 	for _, pkg := range pkgs {
 		if !pkg.IsDir() {
 			continue
 		}
 
-		if pkg.Name() == currentGvmGoName {
-			fmt.Printf("\033[32m=> %s\033[0m", pkg.Name())
+		if pkg.Name() == currentGoVersion {
+			fmt.Printf("\033[32m=> %s\033[0m\n", pkg.Name())
 			continue
 		}
-		fmt.Printf("   %s", pkg.Name())
+		fmt.Printf("   %s\n", pkg.Name())
 	}
 	return nil
 }
 
 func listRemotePkgs() error {
+	customClient := &http.Client{
+		// 10 second timeout
+		Timeout: 10 * time.Second,
+		// 不允许重定向
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+		Transport: &http.Transport{Proxy: http.ProxyFromEnvironment},
+	}
+	client.InstallProtocol("https", githttp.NewClient(customClient))
+
 	rem := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin", URLs: []string{"https://github.com/golang/go"},
 	})

@@ -35,7 +35,7 @@ func Install() *cobra.Command {
 			if opts.Version == "" {
 				return errors.New("version must be not empty")
 			}
-			if runtime.GOOS == "windowns" {
+			if runtime.GOOS == "windows" {
 				return errors.New("unsupported os: windows")
 			}
 			return nil
@@ -43,13 +43,13 @@ func Install() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			err := download(opts)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "\033[31m下载golang %s失败. err: %v\033[0m", opts.Version, err)
+				fmt.Fprintf(os.Stderr, "\033[31m下载golang %s失败.\033[0m err: %v\n", opts.Version, err)
 				return
 			}
 
 			err = extract(opts)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "\033[31m文件解压失败. err: %v\033[0m", err)
+				fmt.Fprintf(os.Stderr, "\033[31m文件解压失败.\033[0m err: %v\n", err)
 				return
 			}
 
@@ -67,6 +67,10 @@ func goPkgName(options *InstallOptions) string {
 	ext := "tar.gz"
 
 	return fmt.Sprintf("go%s.%s-%s.%s", options.Version, runtime.GOOS, runtime.GOARCH, ext)
+}
+
+func setFileDescriptors() {
+
 }
 
 // download 下载golang安装包
@@ -130,12 +134,13 @@ func extract(options *InstallOptions) error {
 				return err
 			}
 			os.Chmod(destFileName, header.FileInfo().Mode())
-			defer dest.Close()
 
 			_, err = io.Copy(dest, tarReader)
 			if err != nil {
 				return err
 			}
+
+			_ = dest.Close()
 		default:
 			return fmt.Errorf("unable to extract %s", header.Name)
 		}
@@ -234,19 +239,27 @@ func (d *FileDownloader) Run() error {
 	}
 
 	var wg sync.WaitGroup
-	fmt.Fprintf(os.Stdout, "\033[32m开始下载%s...\n\033[0m", d.outputFileName)
+	fmt.Fprintf(os.Stdout, "\033[32m开始下载%s...\033[0m\n", d.outputFileName)
+	errs := make(chan error, d.totalPart)
 	for _, j := range jobs {
 		wg.Add(1)
-		go func(job filePart) {
+		go func(job filePart, errs chan error) {
 			defer wg.Done()
 			err := d.downloadPart(job)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "\033[31m下载文件失败: err: %v\033[0m", err)
+				errs <- err
 			}
-		}(j)
+		}(j, errs)
 
 	}
 	wg.Wait()
+	close(errs)
+
+	err = <-errs
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "\033[31m下载文件失败\033[0m: err: %v\n", err)
+	}
+
 	return d.mergeFileParts()
 }
 
@@ -257,7 +270,8 @@ func (d FileDownloader) downloadPart(c filePart) error {
 		return err
 	}
 	r.Header.Set("Range", fmt.Sprintf("bytes=%v-%v", c.From, c.To))
-	resp, err := http.DefaultClient.Do(r)
+	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyFromEnvironment}}
+	resp, err := client.Do(r)
 	if err != nil {
 		return err
 	}
