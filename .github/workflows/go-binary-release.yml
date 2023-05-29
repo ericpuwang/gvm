@@ -15,9 +15,9 @@ jobs:
       - uses: actions/checkout@v3
       - uses: wangyoucao577/go-release-action@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }} # 一个默认的变量，用来实现往 Release 中添加文件
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          goversion: 1.20 # 可以指定编译使用的 Golang 版本
-          binary_name: "gvm" # 可以指定二进制文件的名称
-          extra_files: README.md # 需要包含的额外文件
+          goversion: "https://dl.google.com/go/go1.20.linux-amd64.tar.gz"
+          binary_name: "gvm"
+          extra_files: README.md
