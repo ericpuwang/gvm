@@ -1,16 +1,5 @@
 #ARCH
-ARCH="`uname -s`"
-LINUX="Linux"
-Darwin="Darwin"
-tag="latest"
-
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
 build:
-	@if [ $(ARCH) = $(LINUX) ]; \
-    	then \
-    		go build -o gvm -tags 'netgo osusergo' -ldflags '-extldflags "-static"' main.go; \
-    	elif [ $(ARCH) = $(Darwin) ]; \
-    	then \
-    		GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o gvm -ldflags '-s -extldflags "-sectcreate __TEXT __info_plist Info.plist"' main.go; \
-    	else \
-    		echo "ARCH unknow"; \
-    	fi
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o gvm_$(GOOS)_$(GOARCH) -tags 'netgo osusergo' -ldflags '-extldflags "-static"' main.go;

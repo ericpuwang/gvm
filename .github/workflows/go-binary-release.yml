@@ -2,22 +2,41 @@ name: build-go-binary
 
 on:
   release:
-    types: [created] # 表示在创建新的 Release 时触发
+    types: [created, edited]
 
 jobs:
   build-go-binary:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [linux, darwin] # 需要打包的系统
-        goarch: [amd64, arm64] # 需要打包的架构
+        include:
+        - goarch: amd64
+          goos: linux
+        - goarch: amd64
+          goos: darwin
+        - goarch: arm64
+          goos: linux
+        - goarch: arm64
+          goos: darwin
     steps:
       - uses: actions/checkout@v3
-      - uses: wangyoucao577/go-release-action@v1
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with: 
+          go-version: 1.20
+      - name: Making Go Version Manager
+        run: make build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+      - name: Uploading assets...
+        if: ${{ !env.ACT }}
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goos: ${{ matrix.goos }}
-          goarch: ${{ matrix.goarch }}
-          goversion: "https://dl.google.com/go/go1.20.linux-amd64.tar.gz"
-          binary_name: "gvm"
-          extra_files: README.md
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./gvm_${{ matrix.goos }}_${{ matrix.goarch }}
+          asset_name: gvm_${{ matrix.goos }}_${{ matrix.goarch }}
+
