@@ -13,7 +13,7 @@ jobs:
         goarch: [amd64, arm64] # 需要打包的架构
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/go-release-action@v4
+      - uses: wangyoucao577/go-release-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }} # 一个默认的变量，用来实现往 Release 中添加文件
           goos: ${{ matrix.goos }}
