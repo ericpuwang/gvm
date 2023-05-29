@@ -29,8 +29,8 @@ func Install() *cobra.Command {
 		Source: "https://storage.googleapis.com/golang",
 	}
 	cmd := &cobra.Command{
-		Use:  "install",
-		Long: "Install Go from specified version.",
+		Use:   "install",
+		Short: "Install Go from specified version.",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if opts.version == "" {
 				return errors.New("version must be not empty")
