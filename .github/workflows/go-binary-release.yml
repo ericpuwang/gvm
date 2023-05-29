@@ -39,4 +39,4 @@ jobs:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: ./gvm_${{ matrix.goos }}_${{ matrix.goarch }}
           asset_name: gvm_${{ matrix.goos }}_${{ matrix.goarch }}
-
+          asset_content_type: application/octet-stream
