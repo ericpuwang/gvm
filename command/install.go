@@ -21,7 +21,7 @@ import (
 
 type InstallOptions struct {
 	Source  string
-	version string
+	Version string
 }
 
 func Install() *cobra.Command {
@@ -32,7 +32,7 @@ func Install() *cobra.Command {
 		Use:   "install",
 		Short: "Install Go from specified version.",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if opts.version == "" {
+			if opts.Version == "" {
 				return errors.New("version must be not empty")
 			}
 			if runtime.GOOS == "windowns" {
@@ -43,18 +43,22 @@ func Install() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			err := download(opts)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "\033[31m下载golang %s失败. err: %v\033[0m", opts.version, err)
+				fmt.Fprintf(os.Stderr, "\033[31m下载golang %s失败. err: %v\033[0m", opts.Version, err)
+				return
 			}
 
 			err = extract(opts)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "\033[31m文件解压失败. err: %v\033[0m", err)
+				return
 			}
+
+			gvmUse(&UseOptions{Version: opts.Version})
 		},
 	}
 
 	cmd.Flags().StringVarP(&opts.Source, "source", "s", opts.Source, "Install Go from specified source.")
-	cmd.Flags().StringVarP(&opts.version, "version", "v", opts.version, "Go version")
+	cmd.Flags().StringVarP(&opts.Version, "version", "v", opts.Version, "Go version")
 
 	return cmd
 }
@@ -62,7 +66,7 @@ func Install() *cobra.Command {
 func goPkgName(options *InstallOptions) string {
 	ext := "tar.gz"
 
-	return fmt.Sprintf("go%s.%s-%s.%s", options.version, runtime.GOOS, runtime.GOARCH, ext)
+	return fmt.Sprintf("go%s.%s-%s.%s", options.Version, runtime.GOOS, runtime.GOARCH, ext)
 }
 
 // download 下载golang安装包
@@ -77,7 +81,7 @@ func download(options *InstallOptions) error {
 
 // extract 解压缩文件
 func extract(options *InstallOptions) error {
-	goRoot := path.Join(gvmRootPath, fmt.Sprintf("go%s", options.version))
+	goRoot := path.Join(gvmRootPath, fmt.Sprintf("go%s", options.Version))
 	_, err := os.Stat(goRoot)
 	if err == nil {
 		if err := os.RemoveAll(goRoot); err != nil {
@@ -85,7 +89,7 @@ func extract(options *InstallOptions) error {
 		}
 	}
 	if os.IsNotExist(err) {
-		if err := os.MkdirAll(goRoot, os.ModeDir); err != nil {
+		if err := os.MkdirAll(goRoot, os.ModePerm); err != nil {
 			return err
 		}
 	}
@@ -115,7 +119,7 @@ func extract(options *InstallOptions) error {
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			err = os.Mkdir(path.Join(goRoot, strings.TrimPrefix(header.Name, "go/")), os.ModeDir)
+			err = os.MkdirAll(path.Join(goRoot, strings.TrimPrefix(header.Name, "go/")), header.FileInfo().Mode())
 			if err != nil {
 				return err
 			}
@@ -290,6 +294,14 @@ func (d FileDownloader) getNewRequest(method string) (*http.Request, error) {
 
 // mergeFileParts 合并下载的文件
 func (d FileDownloader) mergeFileParts() error {
+	// 目录outputDir不存在则创建
+	_, err := os.Stat(d.outputDir)
+	if os.IsNotExist(err) {
+		err = os.MkdirAll(d.outputDir, os.ModePerm)
+	}
+	if err != nil {
+		return err
+	}
 	path := filepath.Join(d.outputDir, d.outputFileName)
 	mergedFile, err := os.Create(path)
 	if err != nil {
@@ -307,7 +319,7 @@ func (d FileDownloader) mergeFileParts() error {
 	if totalSize != d.fileSize {
 		return errors.New("文件不完整")
 	}
-	fmt.Fprint(os.Stdout, "\033[32m下载完成\033[0m")
+	fmt.Fprintln(os.Stdout, "\033[32m下载完成\033[0m")
 
 	return nil
 }

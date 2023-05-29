@@ -68,8 +68,8 @@ func forceSymlink(oldname, newname string) error {
 
 func writeEnv() error {
 	v, exist := os.LookupEnv("GOROOT")
-	if exist {
-		fmt.Fprintf(os.Stdout, "\033[31mWARN:\033[0m环境变量GOROOT已经存在.GOROOT=%s", v)
+	if exist && !(v == "$HOME/.gvm/go" || v == fmt.Sprintf("%s/.gvm/go", os.Getenv("HOME"))) {
+		fmt.Fprintf(os.Stdout, "\033[31mWARN:\033[0m 环境变量GOROOT已经存在.GOROOT=%s. 更新GOROOT=$HOME/.gvm/go", v)
 		return nil
 	}
 

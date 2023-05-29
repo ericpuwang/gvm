@@ -49,7 +49,7 @@ func listLocalPkgs() error {
 	fmt.Println()
 
 	pkgs, err := os.ReadDir(gvmRootPath)
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
