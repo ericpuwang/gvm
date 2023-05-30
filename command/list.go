@@ -48,6 +48,7 @@ func listPgks(isRemotePkgs bool) error {
 	return listLocalPkgs()
 }
 
+// listLocalPkgs 获取已安装的Go版本
 func listLocalPkgs() error {
 	fmt.Println("\ngvm gos (installed)")
 	fmt.Println()
@@ -57,8 +58,7 @@ func listLocalPkgs() error {
 		return err
 	}
 
-	body, _ := os.ReadFile(goVersionFilePath)
-	currentGoVersion := strings.TrimSpace(string(body))
+	currentGoVersion := getCurrentGoVersion()
 	for _, pkg := range pkgs {
 		if !pkg.IsDir() {
 			continue
@@ -73,6 +73,7 @@ func listLocalPkgs() error {
 	return nil
 }
 
+// listRemotePkgs 获取已发布的Go版本
 func listRemotePkgs() error {
 	customClient := &http.Client{
 		// 10 second timeout
@@ -116,6 +117,16 @@ func listRemotePkgs() error {
 		fmt.Printf("   %s\n", tag)
 	}
 	return nil
+}
+
+// getCurrentGoVersion 当前Go版本
+func getCurrentGoVersion() string {
+	data, err := os.Readlink(envGoROOT)
+	if err != nil {
+		return ""
+	}
+	parts := strings.Split(data, "/")
+	return parts[len(parts)-1]
 }
 
 type Tags []string

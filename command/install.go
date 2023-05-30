@@ -69,10 +69,6 @@ func goPkgName(options *InstallOptions) string {
 	return fmt.Sprintf("go%s.%s-%s.%s", options.Version, runtime.GOOS, runtime.GOARCH, ext)
 }
 
-func setFileDescriptors() {
-
-}
-
 // download 下载golang安装包
 func download(options *InstallOptions) error {
 	filename := goPkgName(options)

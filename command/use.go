@@ -1,7 +1,6 @@
 package command
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path"
@@ -48,14 +47,6 @@ func gvmUse(options *UseOptions) {
 	if err := forceSymlink(goRoot, envGoROOT); err != nil {
 		fmt.Fprintf(os.Stderr, "\033[31m设置GOROOT目录失败.\033[0m err: %v\n", err)
 	}
-	// 环境变量
-	if err := writeEnv(); err != nil {
-		fmt.Fprintf(os.Stderr, "\033[31m配置环境变量失败.\033[0m err: %v\n\texport GOROOT=$HOME/.gvm/go\n", err)
-	}
-	// 存储GoVersion
-	if err := setGoVersion(options); err != nil {
-		fmt.Fprintln(os.Stderr, "\033[31m存储GoVersion信息失败\033[0m")
-	}
 }
 
 func forceSymlink(oldname, newname string) error {
@@ -64,58 +55,6 @@ func forceSymlink(oldname, newname string) error {
 	}
 	err := os.Symlink(oldname, newname)
 	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func writeEnv() error {
-	v, exist := os.LookupEnv("GOROOT")
-	if exist {
-		if !(v == "$HOME/.gvm/go" || v == fmt.Sprintf("%s/.gvm/go", os.Getenv("HOME"))) {
-			fmt.Fprintf(os.Stdout, "\033[31mWARN:\033[0m 环境变量GOROOT已经存在.GOROOT=%s. 更新GOROOT=$HOME/.gvm/go\n", v)
-		}
-		return nil
-	}
-
-	filepath := path.Join(os.Getenv("HOME"), ".bashrc")
-	if os.Getenv("SHELL") == "/bin/zsh" {
-		filepath = path.Join(os.Getenv("HOME"), ".zshrc")
-	}
-
-	file, err := os.OpenFile(filepath, os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = file.Close() }()
-
-	write := bufio.NewWriter(file)
-	write.WriteString(`
-# Go Version Manager
-# github.com/periky/gvm
-export GOROOT=$HOME/.gvm/go
-export PATH=$PATH:$GOROOT/bin:$HOME/go/bin
-`)
-	err = write.Flush()
-	if err != nil {
-		return err
-	}
-
-	fmt.Fprintln(os.Stdout, "Installed Go Version Manager")
-	fmt.Fprintln(os.Stdout, "Please restart your terminal session or to get started right away run")
-	fmt.Fprintf(os.Stdout, "   \033[32msource %s\033[0m\n", filepath)
-	return nil
-}
-
-func setGoVersion(options *UseOptions) error {
-	file, err := os.Create(goVersionFilePath)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = file.Close() }()
-
-	if _, err := file.WriteString(fmt.Sprintf("go%s", options.Version)); err != nil {
 		return err
 	}
 
