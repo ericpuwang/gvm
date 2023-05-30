@@ -8,7 +8,7 @@ Go Version Manager
 # Ensure GVM_VERSION is set as above
 GVM_PLATFORM=linux_amd64 # also supported: linux_arm64, darwin_amd64, darwin_arm64
 curl -L https://github.com/periky/gvm/releases/download/${GVM_VERSION}/gvm_${GVM_PLATFORMPLA} -o ./gvm
-chmod +x ./kubectl-hns
+chmod +x ./gvm
 ```
 
 ## 设置环境变量
