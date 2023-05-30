@@ -16,6 +16,10 @@ chmod +x ./gvm
 ```shell
 export GOROOT=$HOME/.gvm/go
 export PATH=$PATH:$GOROOT/bin:$HOME/go/bin
+
+# 命令行补全[可选]
+## gvm completion -h
+source <(gvm completion zsh)
 ```
 
 ## 功能
@@ -38,5 +42,6 @@ export PATH=$PATH:$GOROOT/bin:$HOME/go/bin
 
 ### 设置默认版本
 ```shell
-./gvm use -v 1.20.4
+# use命令支持参数补全
+./gvm use 1.20.4
 ```

@@ -4,39 +4,49 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
-type UseOptions struct {
-	Version string
-}
-
 func Use() *cobra.Command {
-	opts := &UseOptions{}
 	cmd := &cobra.Command{
-		Use:   "use",
+		Use:   "use <version>",
 		Short: "Select a go version to use",
-		Run: func(cmd *cobra.Command, args []string) {
-			if opts.Version == "" {
-				fmt.Fprintf(os.Stderr, "\033[31m请指定版本号\033[0m\n")
-				return
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return fmt.Errorf("%q only support arguments <version>, got %q", cmd.CommandPath(), args)
+			}
+			return nil
+		},
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			pkgs, err := os.ReadDir(gvmRootPath)
+			if err != nil && !os.IsNotExist(err) {
+				return nil, cobra.ShellCompDirectiveDefault
 			}
 
-			gvmUse(opts)
+			var comps []string
+			for _, pkg := range pkgs {
+				if !pkg.IsDir() {
+					continue
+				}
+				comps = append(comps, strings.TrimPrefix(pkg.Name(), "go"))
+			}
+			return comps, cobra.ShellCompDirectiveNoFileComp
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			gvmUse(args[0])
 		},
 	}
-
-	cmd.Flags().StringVarP(&opts.Version, "version", "v", opts.Version, "Go version")
 
 	return cmd
 }
 
-func gvmUse(options *UseOptions) {
-	goRoot := path.Join(gvmRootPath, fmt.Sprintf("go%s", options.Version))
+func gvmUse(version string) {
+	goRoot := path.Join(gvmRootPath, fmt.Sprintf("go%s", version))
 	if _, err := os.Stat(goRoot); err != nil {
 		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "\033[31m%s is not installed.\033[0m Install it by running 'gvm install %s'\n", options.Version, options.Version)
+			fmt.Fprintf(os.Stderr, "\033[31m%s is not installed.\033[0m Install it by running 'gvm install %s'\n", version, version)
 			return
 		}
 		fmt.Fprintf(os.Stderr, "\033[31m获取GOROOT信息失败.\033[0m err: %v\n", err)

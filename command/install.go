@@ -53,7 +53,7 @@ func Install() *cobra.Command {
 				return
 			}
 
-			gvmUse(&UseOptions{Version: opts.Version})
+			gvmUse(opts.Version)
 		},
 	}
 
