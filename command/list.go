@@ -26,7 +26,7 @@ func List() *cobra.Command {
 	opts := &ListOptions{}
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "gvm gos (available)",
+		Short: "list installed go versions",
 		Run: func(cmd *cobra.Command, args []string) {
 			err := listPgks(opts.ListRemote)
 
@@ -36,7 +36,7 @@ func List() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVarP(&opts.ListRemote, "remote", "", opts.ListRemote, "List remote versions available for install")
+	cmd.Flags().BoolVarP(&opts.ListRemote, "remote", "", opts.ListRemote, "if list remote available versions. default is false")
 	return cmd
 }
 

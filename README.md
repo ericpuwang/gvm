@@ -45,3 +45,9 @@ source <(gvm completion zsh)
 # use命令支持参数补全
 ./gvm use 1.20.4
 ```
+
+### 卸载指定版本
+```shell
+# uninstall命令支持参数补全
+./gvm uninstall 1.20.4
+```

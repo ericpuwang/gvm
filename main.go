@@ -14,6 +14,7 @@ func main() {
 	cmd.AddCommand(command.List())
 	cmd.AddCommand(command.Install())
 	cmd.AddCommand(command.Use())
+	cmd.AddCommand(command.UnInstall())
 
 	cmd.Execute()
 }

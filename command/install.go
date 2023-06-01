@@ -30,7 +30,7 @@ func Install() *cobra.Command {
 	}
 	cmd := &cobra.Command{
 		Use:   "install",
-		Short: "Install Go from specified version.",
+		Short: "Install go version",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if opts.Version == "" {
 				return errors.New("version must be not empty")
@@ -63,15 +63,15 @@ func Install() *cobra.Command {
 	return cmd
 }
 
-func goPkgName(options *InstallOptions) string {
+func goPkgName(version string) string {
 	ext := "tar.gz"
 
-	return fmt.Sprintf("go%s.%s-%s.%s", options.Version, runtime.GOOS, runtime.GOARCH, ext)
+	return fmt.Sprintf("go%s.%s-%s.%s", version, runtime.GOOS, runtime.GOARCH, ext)
 }
 
 // download 下载golang安装包
 func download(options *InstallOptions) error {
-	filename := goPkgName(options)
+	filename := goPkgName(options.Version)
 	downloader := NewFileDownloader(fmt.Sprintf("%s/%s", options.Source, filename), gvmPkgPath, filename, 10)
 	if err := downloader.Run(); err != nil {
 		return err
@@ -94,7 +94,7 @@ func extract(options *InstallOptions) error {
 		}
 	}
 
-	filepath := path.Join(gvmPkgPath, goPkgName(options))
+	filepath := path.Join(gvmPkgPath, goPkgName(options.Version))
 	tarFile, err := os.Open(filepath)
 	if err != nil {
 		return err
