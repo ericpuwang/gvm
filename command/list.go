@@ -26,7 +26,7 @@ func List() *cobra.Command {
 	opts := &ListOptions{}
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "list installed go versions",
+		Short: "List go versions",
 		Run: func(cmd *cobra.Command, args []string) {
 			err := listPgks(opts.ListRemote)
 
