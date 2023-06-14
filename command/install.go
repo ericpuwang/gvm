@@ -3,9 +3,10 @@ package command
 import (
 	"archive/tar"
 	"compress/gzip"
-	"crypto/sha256"
 	"errors"
 	"fmt"
+	"github.com/schollz/progressbar/v3"
+	"github.com/spf13/cobra"
 	"io"
 	"net/http"
 	"os"
@@ -14,9 +15,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
-
-	"github.com/spf13/cobra"
 )
 
 type InstallOptions struct {
@@ -155,10 +153,10 @@ type FileDownloader struct {
 
 // filePart 文件分片
 type filePart struct {
-	Index int    //文件分片的序号
-	From  int    //开始byte
-	To    int    //结束byte
-	Data  []byte //http下载得到的文件内容
+	Index int           //文件分片的序号
+	From  int           //开始byte
+	To    int           //结束byte
+	Body  io.ReadCloser // 文件内容
 }
 
 // NewFileDownloader .
@@ -205,85 +203,23 @@ func (d *FileDownloader) Run() error {
 			return err
 		}
 	}
-	fileTotalSize, ok, err := d.hasAcceptRanges()
+
+	req, err := d.getNewRequest("GET")
 	if err != nil {
 		return err
 	}
-	d.fileSize = fileTotalSize
-	if !ok {
-		d.totalPart = 1
-	}
-
-	jobs := make([]filePart, d.totalPart)
-	eachSize := fileTotalSize / d.totalPart
-
-	for i := range jobs {
-		jobs[i].Index = i
-		if i == 0 {
-			jobs[i].From = 0
-		} else {
-			jobs[i].From = jobs[i-1].To + 1
-		}
-		if i < d.totalPart-1 {
-			jobs[i].To = jobs[i].From + eachSize
-		} else {
-			//the last filePart
-			jobs[i].To = fileTotalSize - 1
-		}
-	}
-
-	var wg sync.WaitGroup
-	fmt.Fprintf(os.Stdout, "\033[32m开始下载%s...\033[0m\n", d.outputFileName)
-	errs := make(chan error, d.totalPart)
-	for _, j := range jobs {
-		wg.Add(1)
-		go func(job filePart, errs chan error) {
-			defer wg.Done()
-			err := d.downloadPart(job)
-			if err != nil {
-				errs <- err
-			}
-		}(j, errs)
-
-	}
-	wg.Wait()
-	close(errs)
-
-	err = <-errs
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "\033[31m下载文件失败\033[0m: err: %v\n", err)
-	}
-
-	return d.mergeFileParts()
-}
-
-// 下载分片
-func (d *FileDownloader) downloadPart(c filePart) error {
-	r, err := d.getNewRequest("GET")
-	if err != nil {
-		return err
-	}
-	r.Header.Set("Range", fmt.Sprintf("bytes=%v-%v", c.From, c.To))
 	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyFromEnvironment}}
-	resp, err := client.Do(r)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode > 299 {
-		return fmt.Errorf("服务器错误状态码: %v", resp.StatusCode)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	bs, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	if len(bs) != (c.To - c.From + 1) {
-		return errors.New("下载文件分片长度错误")
-	}
-	c.Data = bs
-	d.doneFilePart[c.Index] = c
-	return nil
 
+	err = d.writer(resp)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // getNewRequest 创建一个request
@@ -301,7 +237,7 @@ func (d *FileDownloader) getNewRequest(method string) (*http.Request, error) {
 }
 
 // mergeFileParts 合并下载的文件
-func (d *FileDownloader) mergeFileParts() error {
+func (d *FileDownloader) writer(resp *http.Response) error {
 	// 目录outputDir不存在则创建
 	_, err := os.Stat(d.outputDir)
 	if os.IsNotExist(err) {
@@ -310,27 +246,23 @@ func (d *FileDownloader) mergeFileParts() error {
 	if err != nil {
 		return err
 	}
-	outputPath := filepath.Join(d.outputDir, d.outputFileName)
-	mergedFile, err := os.Create(outputPath)
+
+	name := filepath.Join(d.outputDir, d.outputFileName)
+	f, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = mergedFile.Close() }()
+	defer func() { _ = f.Close() }()
 
-	hash := sha256.New()
-	totalSize := 0
-	for _, s := range d.doneFilePart {
-		_, err := mergedFile.Write(s.Data)
-		if err != nil {
-			return err
-		}
-		hash.Write(s.Data)
-		totalSize += len(s.Data)
+	bar := progressbar.DefaultBytes(
+		resp.ContentLength,
+		fmt.Sprintf("正在下载[\033[32m%s\033[0m]", d.outputFileName),
+	)
+
+	_, err = io.Copy(io.MultiWriter(f, bar), resp.Body)
+	if err != nil {
+		return err
 	}
-	if totalSize != d.fileSize {
-		return errors.New("文件不完整")
-	}
-	fmt.Fprintln(os.Stdout, "\033[32m下载完成\033[0m")
 
 	return nil
 }
