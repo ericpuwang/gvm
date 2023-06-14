@@ -32,11 +32,9 @@ func Install() *cobra.Command {
 		Use:   "install",
 		Short: "Install go version",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
+			opts.Version = strings.TrimPrefix(opts.Version, "go")
 			if opts.Version == "" {
 				return errors.New("version must be not empty")
-			}
-			if runtime.GOOS == "windows" {
-				return errors.New("unsupported os: windows")
 			}
 			return nil
 		},
@@ -94,18 +92,18 @@ func extract(options *InstallOptions) error {
 		}
 	}
 
-	filepath := path.Join(gvmPkgPath, goPkgName(options.Version))
-	tarFile, err := os.Open(filepath)
+	pkgAbsPath := path.Join(gvmPkgPath, goPkgName(options.Version))
+	tarFile, err := os.Open(pkgAbsPath)
 	if err != nil {
 		return err
 	}
-	defer tarFile.Close()
+	defer func() { _ = tarFile.Close() }()
 
 	gr, err := gzip.NewReader(tarFile)
 	if err != nil {
 		return err
 	}
-	defer gr.Close()
+	defer func() { _ = gr.Close() }()
 
 	tarReader := tar.NewReader(gr)
 	for {
@@ -129,7 +127,7 @@ func extract(options *InstallOptions) error {
 			if err != nil {
 				return err
 			}
-			os.Chmod(destFileName, header.FileInfo().Mode())
+			_ = os.Chmod(destFileName, header.FileInfo().Mode())
 
 			_, err = io.Copy(dest, tarReader)
 			if err != nil {
@@ -260,7 +258,7 @@ func (d *FileDownloader) Run() error {
 }
 
 // 下载分片
-func (d FileDownloader) downloadPart(c filePart) error {
+func (d *FileDownloader) downloadPart(c filePart) error {
 	r, err := d.getNewRequest("GET")
 	if err != nil {
 		return err
@@ -274,7 +272,7 @@ func (d FileDownloader) downloadPart(c filePart) error {
 	if resp.StatusCode > 299 {
 		return fmt.Errorf("服务器错误状态码: %v", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	bs, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
@@ -289,7 +287,7 @@ func (d FileDownloader) downloadPart(c filePart) error {
 }
 
 // getNewRequest 创建一个request
-func (d FileDownloader) getNewRequest(method string) (*http.Request, error) {
+func (d *FileDownloader) getNewRequest(method string) (*http.Request, error) {
 	r, err := http.NewRequest(
 		method,
 		d.url,
@@ -303,7 +301,7 @@ func (d FileDownloader) getNewRequest(method string) (*http.Request, error) {
 }
 
 // mergeFileParts 合并下载的文件
-func (d FileDownloader) mergeFileParts() error {
+func (d *FileDownloader) mergeFileParts() error {
 	// 目录outputDir不存在则创建
 	_, err := os.Stat(d.outputDir)
 	if os.IsNotExist(err) {
@@ -312,17 +310,20 @@ func (d FileDownloader) mergeFileParts() error {
 	if err != nil {
 		return err
 	}
-	path := filepath.Join(d.outputDir, d.outputFileName)
-	mergedFile, err := os.Create(path)
+	outputPath := filepath.Join(d.outputDir, d.outputFileName)
+	mergedFile, err := os.Create(outputPath)
 	if err != nil {
 		return err
 	}
-	defer mergedFile.Close()
+	defer func() { _ = mergedFile.Close() }()
+
 	hash := sha256.New()
 	totalSize := 0
 	for _, s := range d.doneFilePart {
-
-		mergedFile.Write(s.Data)
+		_, err := mergedFile.Write(s.Data)
+		if err != nil {
+			return err
+		}
 		hash.Write(s.Data)
 		totalSize += len(s.Data)
 	}
