@@ -5,7 +5,6 @@ import (
 	"compress/gzip"
 	"errors"
 	"fmt"
-	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"io"
 	"net/http"
@@ -111,6 +110,10 @@ func extract(options *InstallOptions) error {
 		}
 		if err != nil {
 			return err
+		}
+
+		if strings.Contains(header.Name, "..") {
+			continue
 		}
 
 		switch header.Typeflag {
