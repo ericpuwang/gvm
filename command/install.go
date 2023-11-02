@@ -5,16 +5,16 @@ import (
 	"compress/gzip"
 	"errors"
 	"fmt"
-	"github.com/schollz/progressbar/v3"
-	"github.com/spf13/cobra"
 	"io"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
+
+	"github.com/schollz/progressbar/v3"
+	"github.com/spf13/cobra"
 )
 
 type InstallOptions struct {
@@ -175,31 +175,6 @@ func NewFileDownloader(url, outputDir, outputFileName string, totalPart int) *Fi
 	}
 }
 
-// hasAcceptRanges 获取要下载的文件的基本信息(header) 使用HTTP Method Head
-func (d *FileDownloader) hasAcceptRanges() (int, bool, error) {
-	r, err := d.getNewRequest("HEAD")
-	if err != nil {
-		return 0, false, err
-	}
-	resp, err := http.DefaultClient.Do(r)
-	if err != nil {
-		return 0, false, err
-	}
-	if resp.StatusCode > 299 {
-		return 0, false, fmt.Errorf("can't process, response is %v", resp.StatusCode)
-	}
-
-	//检查是否支持 断点续传
-	//https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Ranges
-	if resp.Header.Get("Accept-Ranges") != "bytes" {
-		return 0, false, nil
-	}
-
-	//https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Length
-	contentLength, err := strconv.Atoi(resp.Header.Get("Content-Length"))
-	return contentLength, true, err
-}
-
 // Run 开始下载任务
 func (d *FileDownloader) Run() error {
 	if _, err := os.Stat(path.Join(d.outputDir, d.outputFileName)); err == nil {
@@ -216,6 +191,9 @@ func (d *FileDownloader) Run() error {
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return errors.New("invalid version")
 	}
 
 	err = d.writer(resp)
@@ -258,10 +236,20 @@ func (d *FileDownloader) writer(resp *http.Response) error {
 	}
 	defer func() { _ = f.Close() }()
 
-	bar := progressbar.DefaultBytes(
-		resp.ContentLength,
-		fmt.Sprintf("正在下载[\033[32m%s\033[0m]", d.outputFileName),
-	)
+
+	bar := progressbar.NewOptions(int(resp.ContentLength),
+		progressbar.OptionSetWriter(os.Stderr),
+		progressbar.OptionEnableColorCodes(true),
+		progressbar.OptionShowBytes(true),
+		progressbar.OptionSetWidth(15),
+		progressbar.OptionSetDescription(fmt.Sprintf("正在下载[\033[32m%s\033[0m]", d.outputFileName)),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "[green]=[reset]",
+			SaucerHead:    "[green]>[reset]",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}))
 
 	_, err = io.Copy(io.MultiWriter(f, bar), resp.Body)
 	if err != nil {
